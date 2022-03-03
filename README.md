@@ -1,6 +1,8 @@
 # TkFire
 TkInter manager using dictionaries
+
 Ben Canty - November 5, 2021
+
 To facilitate in the creation of tkinter GUIs
 
 Using the tkinter, ttkinter, and scrolledtext modules and allowing for user-defined widgets, a TkFire object is a class which automates the tedium of creating, naming, packing, and linking objects.
