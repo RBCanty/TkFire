@@ -119,15 +119,15 @@ mother = {
         'LAYOUT': ['pack', LB33],
         'TYPE': ["LabelFrame", {'text': "Right Side", 'width': 16}],
         'CHILDREN': {
-            'Opt1': {
+            'Option1': {
                 TYPE: ['OptionMenu', {'variable': ['Opt1', {'value': 0}], 'values': 'options'}],
                 LAYOUT: ['pack', TB33],
             },
-            'Opt2': {
+            'Option2': {
                 TYPE: ['OptionMenu', {'variable': ['Opt2', {'value': 0}], 'values': 'options'}],
                 LAYOUT: ['pack', TB33],
             },
-            'Opt3': {
+            'Option3': {
                 TYPE: ['OptionMenu', {'variable': ['Opt3', {'value': 0}], 'values': 'options'}],
                 LAYOUT: ['pack', TB33],
             },
