@@ -21,3 +21,4 @@ The general definition is:
       - LAYOUT: \['grid', {'row': 1, 'column': 0}]
 
 And elements can be addressed 'name_of_frame_1!name_of_widget_1'
+The children of a frame can be widgets or another frame, the syntax allows for nesting and multiple layers.
