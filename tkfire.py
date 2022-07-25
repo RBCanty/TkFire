@@ -84,7 +84,7 @@ class TkFire:
                 self.gui[index + '!Scrolly'].config(command=self.gui[index].yview)
                 self.gui[index + '!Scrolly'].pack(**PACK_SCROLL)
             if has_scrollx:
-                self.gui[index + '!Scrollx'] = tk.Scrollbar(root)
+                self.gui[index + '!Scrollx'] = tk.Scrollbar(root, orient=tk.HORIZONTAL)
                 self.gui[index]['xscrollcommand'] = self.gui[index + '!Scrollx'].set
                 self.gui[index + '!Scrollx'].config(command=self.gui[index].xview)
                 self.gui[index + '!Scrollx'].pack(**{'side': tk.BOTTOM, 'fill': tk.X})
