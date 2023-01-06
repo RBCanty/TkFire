@@ -54,7 +54,8 @@ class YamlBox:
         try:
             doc = yaml.safe_load(text)
         except yaml.YAMLError as ye:
-            mark = ye.problem_mark  # it's fine
+            mark = ye.problem_mark  # noqa: a YAMLError does contain the problem_mark attribute, PyCharm helper
+            # is having some issues with this line
             line = mark.line + 1
             column = mark.column + 1
             self.notification['text'] = f'YAML Error: L{line} C{column}'
@@ -93,7 +94,7 @@ mother = {
         TYPE: ["LabelFrame", {'text': "Left Side", 'width': 16}],
         CHILDREN: {
             'Button1': {
-                TYPE: ['Button', {'text': "Button 1", 'command': 'btn_cmd'}],
+                TYPE: ['Button', {'text': "Button 1"}],
                 LAYOUT: ['grid', {'row': 0, 'column': 0}],
             },
             'Button2': {
@@ -145,8 +146,20 @@ my_gui = tkfire.TkFire(core, memory, mother, generator=generator)
 
 # In order to address GUI elements after creation, use a bang-path call on the 'gui' attribute:
 my_gui.gui['left_panel!scrolled_text!my_entry'].insert(0, "hello world")
+my_gui.gui['left_panel!Button1']['text'] = "Get Yaml Input"
+
+
+# For another example, a button's functionality can be bound after creation
+def update_test(t, v):
+    t[0] = v
+
+
+test = [None, ]
+my_gui.gui['left_panel!Button1']['command'] = lambda *_: \
+    update_test(test, my_gui.gui['left_panel!my_yaml_box'].get("1.0", tk.END))
 
 # Step 5, Run the gui
 core.mainloop()
 
 pprint(my_gui.gui)
+pprint(test)

@@ -79,68 +79,68 @@ def grid_arg(row, col, kwargs=None):
 
 
 class TkFire:
-    """ A Wrapper for tkinter for a nicer experience in the IDE
+    """ A Wrapper for tkinter for a nicer experience in an IDE
 
-        Elements of the GUI are of the form {name: {layout: [], type: [], children: {}}}
+    Elements of the GUI are of the form {name: {layout: [], type: [], children: {}}}
 
-        - name will define how the element is references in the self.gui dictionary
-        - layout keys to a list whose first element is the layout method (e.g. pack, grid) and whose
-          second element is a dictionary of the kwargs which are passed to the layout method.
-        - type keys to a list whose first element is the name of the Widget (e.g. LabelFrame, Button)
-          and whose second element is a dictionary of the kwargs given to the widget's constructor
-        - children is an optional element which keys to a dictionary with more TkFire Elements.
+    - name will define how the element is references in the self.gui dictionary
+    - layout keys to a list whose first element is the layout method (e.g. pack, grid) and whose
+      second element is a dictionary of the kwargs which are passed to the layout method.
+    - type keys to a list whose first element is the name of the Widget (e.g. LabelFrame, Button)
+      and whose second element is a dictionary of the kwargs given to the widget's constructor
+    - children is an optional element which keys to a dictionary with more TkFire Elements.
 
-        This nestable definition of elements is passed into the constructor as the 'mother'.  Elements
-        of the 'mother' can reference the elements of a companion dictionary 'memory' which can store
-        tkinter variables and functions to bind to things like buttons.
+    This nestable definition of elements is passed into the constructor as the 'mother'.  Elements
+    of the 'mother' can reference the elements of a companion dictionary 'memory' which can store
+    tkinter variables and functions to bind to things like buttons.
 
-        Technically, any element keyed by a string which maps to a list will be interpreted as
-        [constructor, {arguments}], and so tkinter variables can be specified in the constructor
-        of other Elements (see Opt1 in the example below).
+    Technically, any element keyed by a string which maps to a list will be interpreted as
+    [constructor, {arguments}], and so tkinter variables can be specified in the constructor
+    of other Elements (see Opt1 in the example below).
 
-        Elements outside TkFire can be accessed via the self.gui dictionary where the path is bang-separated.
+    Elements outside TkFire can be accessed via the self.gui dictionary where the path is bang-separated.
 
-        Example::
+    Example::
 
-        | # Defining the memory
-        | memory = {
-        |     'cmd_continue': lambda: print("Continuing..."),
-        |     'var_opt_1': tk.IntVar,
-        | }
-        |
-        | # Defining the mother
-        | mother = {
-        |     'main_panel': {
-        |         layout: ['pack', {'side': 'left', 'fill': 'both', 'ipadx': 3, 'ipady': 3}],
-        |         type: ['LabelFrame', {'text': "Left Side", 'width': 16}],
-        |         children: {
-        |             'Button_01': {
-        |                 type: ['Button', {'text': "Play Again", 'command': 'cmd_continue'}],
-        |                 layout: ['grid', {'row': 0, 'column': 0}],
-        |             },
-        |             'Button_02': {
-        |                 type: ['Button', {'text': "Quit"}],
-        |                 layout: ['grid', {'row': 0, 'column': 0}],
-        |             },
-        |             'Opt1': {
-        |                 TYPE: ['OptionMenu', {'variable': ['var_opt_1', {'value': 0}], 'values': 'options'}],
-        |                 LAYOUT: ['pack', TB33],
-        |             },
-        |         },
-        |     ...
-        |     }
-        |
-        | my_core = tk.Tk()
-        |
-        | # Construct the TkFire object
-        | my_ui = TkFire(my_core, mother, memory)
-        |
-        | # Bind a command to a button after construction
-        | my_ui.gui['main_panel!Button_02']['command'] = lambda *_: print("Exiting...")
-        | ...
-        | my_core.mainloop()
+    | # Defining the memory
+    | memory = {
+    |     'cmd_continue': lambda: print("Continuing..."),
+    |     'var_opt_1': tk.IntVar,
+    | }
+    |
+    | # Defining the mother
+    | mother = {
+    |     'main_panel': {
+    |         layout: ['pack', {'side': 'left', 'fill': 'both', 'ipadx': 3, 'ipady': 3}],
+    |         type: ['LabelFrame', {'text': "Left Side", 'width': 16}],
+    |         children: {
+    |             'Button_01': {
+    |                 type: ['Button', {'text': "Play Again", 'command': 'cmd_continue'}],
+    |                 layout: ['grid', {'row': 0, 'column': 0}],
+    |             },
+    |             'Button_02': {
+    |                 type: ['Button', {'text': "Quit"}],
+    |                 layout: ['grid', {'row': 0, 'column': 0}],
+    |             },
+    |             'Opt1': {
+    |                 TYPE: ['OptionMenu', {'variable': ['var_opt_1', {'value': 0}], 'values': 'options'}],
+    |                 LAYOUT: ['pack', TB33],
+    |             },
+    |         },
+    |     ...
+    |     }
+    |
+    | my_core = tk.Tk()
+    |
+    | # Construct the TkFire object
+    | my_ui = TkFire(my_core, mother, memory)
+    |
+    | # Bind a command to a button after construction
+    | my_ui.gui['main_panel!Button_02']['command'] = lambda *_: print("Exiting...")
+    | ...
+    | my_core.mainloop()
+    """
 
-        """
     def __init__(self, core, memory, mother, generator=Dispatcher()):
         """ Creates a TkFire object which allows a tkinter GUI to be created and modified using dictionary syntax.
 
