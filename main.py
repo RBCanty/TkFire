@@ -1,3 +1,8 @@
+""" Didactic example of TkFire being used
+
+@author: Ben C
+"""
+
 import tkfire
 from tkfire import tk, LAYOUT, TYPE, CHILDREN, LB33, TB33, BOTH33, PACK_SCROLL
 
@@ -74,8 +79,8 @@ class YamlBox:
         return self.frame.grid(*args, **kwargs)
 
 
-# Step 2c, Create a generatrix for the TkFire object
-generator = tkfire.Generatrix({'YAML_Entry': YamlBox})
+# Step 2c (Because 2b deployed a custom widget), Create a Dispatcher for the TkFire object
+generator = tkfire.Dispatcher({'YAML_Entry': YamlBox})
 
 # Step 3, Define the structure of the GUI
 # 'Name of Element' (cannot contain '!')
