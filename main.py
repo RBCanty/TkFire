@@ -111,59 +111,55 @@ generator = Dispatcher({'YAML_Entry': YamlBox})
 #      CHILDREN: (Optional) dict(Elements for which this element is the parent frame)
 mother = {
     'left_panel': {
-        LAYOUT: ['pack', {'expand': True, **LB33}],
-        TYPE: ["LabelFrame", {'text': "Left Side", 'width': 16}],
+        LAYOUT: spec('pack', expand=True, **LB33),
+        TYPE: spec('LabelFrame', text="Left Side", width=16),
         CHILDREN: {
             'Button1': {
-                TYPE: ['Button', {'text': "Button 1"}],
-                LAYOUT: ['grid', {'row': 0, 'column': 0}, {'rowconfigure': {'index': 0, 'weight': 1}}],
-                # Any additional elements of a LAYOUT specification are dispatched to the Parent using
-                # the map {'command': {kwargs}, ...}
-                # So here, the parent is 'left_panel' and it's rowconfigure() method will be called with arguments:
-                # index=0 and weight=1.
+                TYPE: spec('Button', text="Button 1"),
+                LAYOUT: spec('grid', row=0, column=0),
             },
             'Button2': {
-                TYPE: ['Button', {'text': "Button 2!", 'command': 'btn_cmd'}],
-                LAYOUT: ['grid', {'row': 1, 'column': 0}, {'rowconfigure': {'index': 1, 'weight': 1}}],
+                TYPE: spec(tk.Button, text="Button 2!", command="btn_cmd"),
+                LAYOUT: spec('grid', row=1, column=0),
             },
             'Button3': {
-                TYPE: ['Button', {'text': "Button 3", 'command': print_hello}],
-                LAYOUT: ['grid', {'row': 2, 'column': 0}, {'rowconfigure': {'index': 2, 'weight': 1}}],
+                TYPE: spec('Button', text="Button 3", command=print_hello),
+                LAYOUT: spec('grid', row=2, column=0),
             },
             'my_yaml_box': {
-                TYPE: ['YAML_Entry', {},
-                       # 'YAML_Entry' can also be YamlBox or a factory which creates a YamlBox constructor.
-                       {'insert': {'where': "1.0", 'what': [1, 2, 3, 5, 8, 13]}}],
-                # Any additional elements in a TYPE specification are dispatched to the object after construction
-                # So here, after creation {my_yaml_box = YamlBox(...)}, there is an invocation of
-                # {my_yaml_box.insert(what="1.0", where=[...])}
-                LAYOUT: ['grid', {'row': 0, 'column': 1, 'rowspan': 3}]
+                TYPE: spec('YAML_Entry'),
+                LAYOUT: spec('grid', row=0, column=1, rowspan=3),
+                POST: [spec('insert', where="1.0", what=[1, 2, 3, 5, 8, 13]), ]
             },
             'scrolled_text': {
-                TYPE: ["ScrolledText", {'wrap': tk.WORD, 'width': 16, 'height': 12}],
-                LAYOUT: ['grid', {'row': 3, 'column': 1}],
+                TYPE: spec("ScrolledText", wrap=tk.WORD, width=16, height=12),
+                LAYOUT: spec('grid', row=3, column=1),
                 CHILDREN: {
                     'my_entry': {
-                        TYPE: ['Entry', {}],
-                        LAYOUT: ['pack', LB33]
+                        TYPE: spec('Entry'),
+                        LAYOUT: spec('pack', **LB33)
                     }
                 }
             }
         },
+        POST: [
+            spec('rowconfigure', 1, weight=1),
+            spec('rowconfigure', 2, weight=1),
+        ]
     },
     'right_panel': {
-        'LAYOUT': ['pack', LB33],
-        'TYPE': ["LabelFrame", {'text': "Right Side", 'width': 16}],
+        'LAYOUT': spec('pack', **LB33),
+        'TYPE': spec("LabelFrame", text="Right Side", width=16),
         'CHILDREN': {
             **{  # Variable elements can be defined with comprehensions
                 f"Option{i}": {
-                    TYPE: ['OptionMenu', {'variable': [f'Opt{i}', {'value': 0}], 'values': 'options'}],
-                    LAYOUT: ['pack', TB33],
+                    TYPE: spec('OptionMenu', VarSpec(f'Opt{i}'), 0, VarArg('options', 1)),
+                    LAYOUT: spec('pack', **TB33),
                 } for i in range(1, n_options)
             },
             f"Option{n_options}": {
-                    TYPE: ['OptionMenu', {'variable': [f'Opt{n_options}', {'value': 0}], 'values': [-1, -2, -3, -4]}],
-                    LAYOUT: ['pack', TB33],
+                    TYPE: spec(tk.OptionMenu, VarSpec(f'Opt{n_options}'), 0, *[-1, -2, -3, -4]),
+                    LAYOUT: spec('pack', **TB33),
             }
             # The first set of Option Menus used 'options' (a reference to memory) to specify values
             # The final Option Menu uses
@@ -174,7 +170,7 @@ mother = {
 
 # #### Step 4 ####
 # Create the TkFire object (if no generator is provided, it will use the default version)
-my_gui = TkFire(tk_core, memory, mother, generator=generator)
+my_gui = TkFire(tk_core, memory, mother, generator=generator).build()
 
 # In order to address GUI elements after creation, use a bang-path get/set item:
 my_gui['left_panel!scrolled_text!my_entry'].insert(0, "hello world")
