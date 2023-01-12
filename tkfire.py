@@ -10,11 +10,6 @@ from fire_exceptions import *
 from pprint import pformat
 
 
-__all__ = ["TkFire", "Dispatcher",
-           "grid_arg", "spec", "VarSpec", "VarArg",
-           "LAYOUT", "TYPE", "CHILDREN", "POST"]
-
-
 # #### Constants #### #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
 LAYOUT = 'LAYOUT'
 TYPE = 'TYPE'
