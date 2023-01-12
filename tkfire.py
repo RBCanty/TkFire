@@ -4,7 +4,6 @@ reference components by Name.
 @author: Richard "Ben" Canty
 """
 
-import tkinter as tk
 from dispatching import *
 from fire_exceptions import *
 from pprint import pformat
