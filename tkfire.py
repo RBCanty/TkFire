@@ -10,7 +10,7 @@ from fire_exceptions import *
 from pprint import pformat
 
 
-__all__ = ["TkFire", "Memory", "spec",
+__all__ = ["TkFire", "Memory", "spec", "post",
            "fire_pack", "fire_place", "fire_grid",
            "LAYOUT", "TYPE", "CHILDREN", "POST"]
 
@@ -30,75 +30,55 @@ SX = 'scrollx'
 class TkFire:
     """ A Wrapper for tkinter for a nicer experience in an IDE
 
-    Elements of the GUI are of the form {name: {layout: [], type: [], children: {}}}
+    Elements of the GUI are of the form {name: {layout: spec, type: spec, children: {}, post: []}}
 
-    - name will define how the element is references in the self.gui dictionary
-    - layout keys to a list whose first element is the layout method (e.g. pack, grid) and whose
-      second element is a dictionary of the kwargs which are passed to the layout method.
-    - type keys to a list whose first element is the name of the Widget (e.g. LabelFrame, Button)
-      and whose second element is a dictionary of the kwargs given to the widget's constructor
+    - name will define how the element is referenced in the self.gui dictionary
+    - layout keys to a fire_pack, fire_place, or fire_grid call which mimics tkinter's geometry managers
+      in a manner compatible with TkFire.  These methods are wrappers for the spec() method which explicit
+      and annotated arguments.
+    - type keys to a specification in the form of a list [Constructor: Type, args: Tuple, kwargs: Dict]
+      whose first element is the constructor for a Widget (e.g. LabelFrame, Button) and whose
+      second and third elements are the args (packed as a tuple) and the kwargs (packed as a dictionary)
+      for the constructor (they are unpacked for the call).  The spec() method is provided to make this
+      more concise and mirror normal python syntax.
     - children is an optional element which keys to a dictionary with more TkFire Elements.
+    - post is an optional element listing operations to be executed after the creation of the Object
+      which is a list of lists of the form [[attribute: string, args: Tuple, kwargs: Dict], ...] where
+      attribute is an attribute of the parent (the object created just before) which is called with args
+      and kwargs (they are unpacked for the call).  The spec() method is provided to make this
+      more concise and mirror normal python syntax.
 
     This nestable definition of elements is passed into the constructor as the 'mother'.  Elements
-    of the 'mother' can reference the elements of a companion dictionary 'memory' which can store
+    of the 'mother' can reference the elements of a companion Memory object 'memory' which can store
     tkinter variables and functions to bind to things like buttons.
 
-    Technically, any element keyed by a string which maps to a list will be interpreted as
-    [constructor, {arguments}], and so tkinter variables can be specified in the constructor
-    of other Elements (see Opt1 in the example below).
+    Elements outside TkFire can be accessed via the self.gui dictionary where the path is a
+    bang-separated sequence of names (e.g. "level_1!subsection_A!ok_button")
 
-    Elements outside TkFire can be accessed via the self.gui dictionary where the path is bang-separated.
+    Outline::
 
-    Example::
-
-    | # Defining the memory
-    | memory = {
-    |     'cmd_continue': lambda: print("Continuing..."),
-    |     'var_opt_1': tk.IntVar,
-    | }
+    | # Define the memory
+    | memory = Memory(...)
     |
-    | # Defining the mother
-    | mother = {
-    |     'main_panel': {
-    |         layout: ['pack', {'side': 'left', 'fill': 'both', 'ipadx': 3, 'ipady': 3}],
-    |         type: ['LabelFrame', {'text': "Left Side", 'width': 16}],
-    |         children: {
-    |             'Button_01': {
-    |                 type: ['Button', {'text': "Play Again", 'command': 'cmd_continue'}],
-    |                 layout: ['grid', {'row': 0, 'column': 0}],
-    |             },
-    |             'Button_02': {
-    |                 type: ['Button', {'text': "Quit"}],
-    |                 layout: ['grid', {'row': 0, 'column': 0}],
-    |             },
-    |             'Opt1': {
-    |                 TYPE: ['OptionMenu', {'variable': ['var_opt_1', {'value': 0}], 'values': 'options'}],
-    |                 LAYOUT: ['pack', TB33],
-    |             },
-    |         },
-    |     ...
-    |     }
+    | # Define the mother
+    | mother = {...}
     |
+    | # Create a tkinter environment and construct the TkFire object
     | my_core = tk.Tk()
+    | my_ui = TkFire(my_core, mother, memory).build()
     |
-    | # Construct the TkFire object
-    | my_ui = TkFire(my_core, mother, memory)
-    |
-    | # Bind a command to a button after construction
-    | my_ui.gui['main_panel!Button_02']['command'] = lambda *_: print("Exiting...")
-    | ...
+    | # Run
     | my_core.mainloop()
     """
 
     def __init__(self, core, memory=None, mother: dict = None):
         """ Creates a TkFire object which allows a tkinter GUI to be created and modified using dictionary syntax.
 
-        References: :class:`Dispatcher`
+        References: :class:`Memory`
 
         :param core: a tkinter root (Tk, TopLevel, Frame, ...)
-        :param memory: a dictionary of variables (keys may be referenced in mother)
+        :param memory: a dictionary or Memory of variables (keys may be referenced by mother)
         :param mother: a dictionary specifying the GUI
-        :param generator: Determines how the objects references in mother will be constructed
         """
         self.core = core
 

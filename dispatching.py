@@ -63,15 +63,26 @@ class Memory(dict):
         return VarArg(name, unpack)
 
 
-def spec(_base_specifier, *args, **kwargs):
-    """ Helper to specify the args and kwargs of a method in a uniform format
+def spec(constructor, *args, **kwargs):
+    """ Helper to specify the args and kwargs of a TYPE in a uniform format
 
-    :param _base_specifier: Method or Name to which args and kwargs are passed
+    :param constructor: Constructor to which args and kwargs are passed
     :param args: Positional arguments
     :param kwargs: Keyword Arguments
-    :return: (args, kwargs)
+    :return: (_base_specifier, args, kwargs)
     """
-    return _base_specifier, args, kwargs
+    return constructor, args, kwargs
+
+
+def post(callable_attribute: str, *args, **kwargs):
+    """ Helper to specify the args and kwargs of a post method in a uniform format
+
+    :param _base_specifier: The name of the parent object's attribute to which args and kwargs are passed
+    :param args: Positional arguments
+    :param kwargs: Keyword Arguments
+    :return: (callable_attribute, args, kwargs)
+    """
+    return spec(callable_attribute, *args, **kwargs)
 
 
 def fire_grid(row=..., column=..., rowspan=..., columnspan=..., sticky=...,

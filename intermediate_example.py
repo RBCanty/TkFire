@@ -17,6 +17,7 @@ This demonstrates:
 
 from tkfire import *
 import tkinter as tk
+from tkinter import scrolledtext as st
 from pprint import pprint
 import yaml
 from io import StringIO
@@ -59,26 +60,16 @@ memory = Memory(memory)
 class YamlBox:
     def __init__(self, core):
         self.core = core
-        self.frame = tk.Frame(self.core)
-        self.container = tk.Frame(self.frame)
-        self.container.pack(**TB33)
-        self.scrolly = tk.Scrollbar(self.container)
-        self.scrollx = tk.Scrollbar(self.container, orient='horizontal')
-        self.scrolly.pack(side=tk.RIGHT, fill=tk.Y)
-        self.scrollx.pack(side=tk.BOTTOM, fill=tk.X)
-        self.textbox = tk.Text(self.container,
-                               yscrollcommand=self.scrolly.set,
-                               xscrollcommand=self.scrollx.set,
-                               width=18,
-                               height=5,
-                               wrap=tk.NONE)
-        self.textbox.pack(**LB33)
-        self.scrolly.config(command=self.textbox.yview)
-        self.scrollx.config(command=self.textbox.xview)
-        self.notif_frame = tk.Frame(self.frame)
-        self.notif_frame.pack(**TB33)
-        self.notification = tk.Label(self.notif_frame, text='--')
-        self.notification.pack(**BOTH33)
+        self.frame = tk.Frame(core)
+        self.textbox = st.ScrolledText(self.frame, width=24, height=6, wrap=tk.NONE)
+        self.textbox.vbar2 = tk.Scrollbar(self.frame, orient='horizontal')
+        self.textbox['xscrollcommand'] = self.textbox.vbar2.set
+        self.textbox.vbar2.config(command=self.textbox.xview)
+        self.notification = tk.Label(self.frame, text='--')
+        # Packing
+        self.textbox.pack(expand=True, **TB33)
+        self.textbox.vbar2.pack(side=tk.TOP, fill=tk.X)
+        self.notification.pack(**TB33)
 
     def get(self, start, end):
         text = self.textbox.get(start, end)
@@ -141,14 +132,14 @@ mother = {
             # Plug in the custom widget
             'my_yaml_box': {
                 TYPE: spec(YamlBox),
-                LAYOUT: fire_grid(row=0, column=1, rowspan=4),
+                LAYOUT: fire_grid(row=0, column=1, rowspan=4, sticky="NSEW"),
                 # POST executes after creation and packing of this widget
                 # This will call:
                 #   self.insert(where="1.0", what=...)
                 # where self is the YamlBox created for this Widget, my_yaml_box
                 # Here the 'options' value needs to not be unpacked (we want it as a list)
                 # In this example, we could have equivalently said "what=memory['options']"
-                POST: [spec('insert', where="1.0", what=memory.varg('options', 0)), ]
+                POST: [post('insert', where="1.0", what=memory.varg('options', 0)), ]
             },
         },
         # POST: for making the buttons shift when the window is resized
@@ -157,8 +148,8 @@ mother = {
         #   self.rowconfigure((0,1,2), weight=1)
         # where self is the LabelFrame created for this Widget, left_panel
         POST: [
-            spec('columnconfigure', 0, weight=1),
-            spec('rowconfigure', (0, 1, 2), weight=1),
+            post('columnconfigure', (0, 1), weight=1),
+            post('rowconfigure', (0, 1, 2), weight=1),
         ]
     },
     'right_panel': {
