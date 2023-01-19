@@ -1,11 +1,15 @@
 """ Didactic example of TkFire being used
 
+
+TODO: Update the examples
+
 @author: Ben C
 """
 
 
 from tkfire import *
 import tkinter as tk
+from tkinter import scrolledtext as st
 
 
 from pprint import pprint
@@ -29,12 +33,12 @@ tk_core = tk.Tk()
 
 # #### Step 2 ####
 # Create variables or other functions which will plug into the GUI
-memory = dict()
 n_options = 3
+memory = Memory(options=[1,2,3,4,5],
+                btn_cmd=lambda: print("Hello!"))
 for i in range(0, n_options):
     memory[f'Opt{i+1}'] = tk.IntVar
-memory['options'] = [1, 2, 3, 4, 5]
-memory['btn_cmd'] = lambda: print("Hello!")
+
 
 
 # #### Step 2b ####
@@ -97,12 +101,6 @@ class YamlBox:
         return getattr(self.frame, key)(*args, **kwargs)
 
 
-# #### Step 2c ####
-# (Because 2b deployed a custom widget)
-# Create a Dispatcher for the TkFire object
-generator = Dispatcher({'YAML_Entry': YamlBox})
-
-
 # #### Step 3 ####
 # Define the structure of the GUI
 # 'Name of Element' (cannot contain '!')
@@ -111,33 +109,33 @@ generator = Dispatcher({'YAML_Entry': YamlBox})
 #      CHILDREN: (Optional) dict(Elements for which this element is the parent frame)
 mother = {
     'left_panel': {
-        LAYOUT: spec('pack', expand=True, **LB33),
-        TYPE: spec('LabelFrame', text="Left Side", width=16),
+        LAYOUT: fire_pack(expand=True, **LB33),
+        TYPE: spec(tk.LabelFrame, text="Left Side", width=16),
         CHILDREN: {
             'Button1': {
-                TYPE: spec('Button', text="Button 1"),
-                LAYOUT: spec('grid', row=0, column=0),
+                TYPE: spec(tk.Button, text="Button 1"),
+                LAYOUT: fire_grid(row=0, column=0),
             },
             'Button2': {
                 TYPE: spec(tk.Button, text="Button 2!", command="btn_cmd"),
-                LAYOUT: spec('grid', row=1, column=0),
+                LAYOUT: fire_grid(row=1, column=0),
             },
             'Button3': {
-                TYPE: spec('Button', text="Button 3", command=print_hello),
-                LAYOUT: spec('grid', row=2, column=0),
+                TYPE: spec(tk.Button, text="Button 3", command=print_hello),
+                LAYOUT: fire_grid(row=2, column=0),
             },
             'my_yaml_box': {
-                TYPE: spec('YAML_Entry'),
-                LAYOUT: spec('grid', row=0, column=1, rowspan=3),
+                TYPE: spec(YamlBox),
+                LAYOUT: fire_grid(row=0, column=1, rowspan=3),
                 POST: [spec('insert', where="1.0", what=[1, 2, 3, 5, 8, 13]), ]
             },
             'scrolled_text': {
-                TYPE: spec("ScrolledText", wrap=tk.WORD, width=16, height=12),
-                LAYOUT: spec('grid', row=3, column=1),
+                TYPE: spec(st.ScrolledText, wrap=tk.WORD, width=16, height=12),
+                LAYOUT: fire_grid(row=3, column=1),
                 CHILDREN: {
                     'my_entry': {
-                        TYPE: spec('Entry'),
-                        LAYOUT: spec('pack', **LB33)
+                        TYPE: spec(tk.Entry),
+                        LAYOUT: fire_pack(**LB33)
                     }
                 }
             }
@@ -148,18 +146,18 @@ mother = {
         ]
     },
     'right_panel': {
-        'LAYOUT': spec('pack', **LB33),
-        'TYPE': spec("LabelFrame", text="Right Side", width=16),
+        'LAYOUT': fire_pack(**LB33),
+        'TYPE': spec(tk.LabelFrame, text="Right Side", width=16),
         'CHILDREN': {
             **{  # Variable elements can be defined with comprehensions
                 f"Option{i}": {
-                    TYPE: spec('OptionMenu', VarSpec(f'Opt{i}'), 0, VarArg('options', 1)),
-                    LAYOUT: spec('pack', **TB33),
+                    TYPE: spec(tk.OptionMenu, memory.varspec(f'Opt{i}'), 0, memory.varg('options', 1)),
+                    LAYOUT: fire_pack(**TB33),
                 } for i in range(1, n_options)
             },
             f"Option{n_options}": {
-                    TYPE: spec(tk.OptionMenu, VarSpec(f'Opt{n_options}'), 0, *[-1, -2, -3, -4]),
-                    LAYOUT: spec('pack', **TB33),
+                    TYPE: spec(tk.OptionMenu, memory.varspec(f'Opt{n_options}'), 0, *[-1, -2, -3, -4]),
+                    LAYOUT: fire_pack(**TB33),
             }
             # The first set of Option Menus used 'options' (a reference to memory) to specify values
             # The final Option Menu uses
@@ -170,7 +168,7 @@ mother = {
 
 # #### Step 4 ####
 # Create the TkFire object (if no generator is provided, it will use the default version)
-my_gui = TkFire(tk_core, memory, mother, generator=generator).build()
+my_gui = TkFire(tk_core, memory, mother).build()
 
 # In order to address GUI elements after creation, use a bang-path get/set item:
 my_gui['left_panel!scrolled_text!my_entry'].insert(0, "hello world")
@@ -186,9 +184,9 @@ def update_test(t, v):
 
 
 test = [None, ]
-my_gui.bind_commands(
-    ('left_panel!Button1',
-     lambda *_: update_test(test, my_gui.gui['left_panel!my_yaml_box'].get("1.0", tk.END))),
+my_gui.bind_command(
+    'left_panel!Button1',
+     lambda *_: update_test(test, my_gui.gui['left_panel!my_yaml_box'].get("1.0", tk.END))
 )
 
 # OptionMenu widgets can be updated
@@ -201,13 +199,21 @@ my_gui['left_panel!Button4'] = tk.Button(my_gui['left_panel'],
                                              sum(memory[f'Opt{j}'].get() for j in range(1, n_options + 1))
                                          )
                                          )
-my_gui['left_panel!Button4'].grid(**grid_arg(3, 0))
+my_gui['left_panel!Button4'].grid(row=3, column=0)
 
 
 # #### Step 5 ####
 # Run the gui
 tk_core.mainloop()
 
-#
-pprint(my_gui.gui)
+
+# #### Post ####
+
+# print("\nGUI")
+# pprint(my_gui.gui)
+
+print("Memory")
+pprint(my_gui.memory)
+
+print("\nTest")
 pprint(test[0])

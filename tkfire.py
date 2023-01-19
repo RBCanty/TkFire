@@ -10,8 +10,8 @@ from fire_exceptions import *
 from pprint import pformat
 
 
-__all__ = ["TkFire", "Dispatcher",
-           "grid_arg", "spec", "VarSpec", "VarArg",
+__all__ = ["TkFire", "Memory", "spec",
+           "fire_pack", "fire_place", "fire_grid",
            "LAYOUT", "TYPE", "CHILDREN", "POST"]
 
 
@@ -23,44 +23,6 @@ POST = 'POST'
 
 SY = 'scrolly'
 SX = 'scrollx'
-
-
-# #### Helper Methods #### #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
-def has_key(_d, _key):
-    present = False
-
-    if isinstance(_key, VarArg):
-        _key = _key.name
-
-    try:
-        present = _key in _d
-    except TypeError:
-        pass
-    finally:
-        return present
-
-
-def grid_arg(row, col, kwargs=None):
-    """ Used to abridge the specification of the tkinter grid packer
-
-    Reference:
-      - columnspan: How many columns a widget occupies (default 1)
-      - rowspan: How many rows a widget occupies (default 1)
-      - ipadx, ipady: How many pixels to pad inside the widget's borders, horizontally and vertically
-      - padx, pady: How many pixels to pad outside the widget's borders, horizontally and vertically
-      - sticky: What to do if the cell is larger than widget
-        (center - "", side/corner - combinations of "N", "S", "E", & "W")
-
-    :param row: the row number (0-indexed)
-    :param col: the column number (0-indexed)
-    :param kwargs: And additional kwargs for grid (see note)
-    :return: A dict of keyword arguments for grid()
-    """
-    if kwargs is None:
-        kwargs = {}
-    args = {'row': row, 'column': col}
-    args.update(kwargs)
-    return args
 
 
 # #### TkFire #### #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
@@ -128,7 +90,7 @@ class TkFire:
     | my_core.mainloop()
     """
 
-    def __init__(self, core, memory: dict, mother: dict, generator: Dispatcher = None):
+    def __init__(self, core, memory=None, mother: dict = None):
         """ Creates a TkFire object which allows a tkinter GUI to be created and modified using dictionary syntax.
 
         References: :class:`Dispatcher`
@@ -139,12 +101,18 @@ class TkFire:
         :param generator: Determines how the objects references in mother will be constructed
         """
         self.core = core
-        self.memory = memory
-        self._mother = mother
 
-        if generator is None:
-            generator = Dispatcher()
-        self.generator = generator
+        if memory is None:
+            memory = {}
+        if isinstance(memory, Memory):
+            self.memory = memory
+        else:
+            self.memory = Memory(memory)
+
+        if mother is None:
+            mother = {}
+
+        self._mother = mother
 
         self.gui = dict()  # maps to all widgets
         self._variable_map = dict()  # Whenever variable is bound to a widget,
@@ -174,7 +142,7 @@ class TkFire:
                 self.memory[var_name] = value.construct(root, self.memory[var_name])
                 replacer.append((keyword, self.memory[var_name]))
             # value is a reference  # [ e.g. values='options' ]
-            elif has_key(self.memory, value):
+            elif value in self.memory:
                 replacer.append((keyword, self.memory[value]))
             # value is a literal  # [ e.g. values=[1, 2, 3, 4] ]
             else:
@@ -194,7 +162,7 @@ class TkFire:
                 new_args.append(self.memory[var_name])
             # value is a reference
             # e.g. foo(..., 'options', ...)
-            elif has_key(self.memory, value):
+            elif value in self.memory:
                 if isinstance(value, VarArg):
                     if value.unpack == 2:
                         for k, v in self.memory[value.name]:
@@ -233,6 +201,9 @@ class TkFire:
             has_scroll_x = False
 
         return has_scroll_y, has_scroll_x
+
+    def generate(self, generator, *args, **kwargs):
+        return generator(*args, **kwargs)
 
     def _build(self, parent, structure):
         """ Constructs the dictionary which contains all the widgets (recursively)
@@ -305,7 +276,7 @@ class TkFire:
 
             # Build the object
             try:
-                self.gui[child_path] = self.generator.generate(widget_type, root, *widget_args, **widget_kwargs)
+                self.gui[child_path] = self.generate(widget_type, root, *widget_args, **widget_kwargs)
             except Exception as e:
                 msg = f"Could not build '{child_path}' from:\n{child_repr}"
                 raise TkFireRenderError(msg) from e
@@ -352,13 +323,20 @@ class TkFire:
             self._build(child_path, grandchildren)
 
     def bind_commands(self, *args):
-        """ Binds commands after
+        """ Binds commands after build() is called. Calls self.bind_command() on each tuple passed
 
-        :param args: an iterable of (path, command)
+        :param args: An iterable with elements of the form (path, command)
         :return: None
         """
-        for (path, _command) in args:
-            self.gui[path]['command'] = _command
+        for (path, command) in args:
+            self.bind_command(path, command)
+
+    def bind_command(self, path, command):
+        """ Binds a command to a Button (or other Widget with a 'command' component) after build() is called
+
+        :param path: The gui path to the Widget (e.g. "main!left!button_5")
+        """
+        self.gui[path]['command'] = command
 
     def set_optionmenu_options(self, path, options=None, *, variable=None, option_names=None):
         """ Updates the options presented in an OptionMenu
