@@ -77,7 +77,7 @@ def spec(constructor, *args, **kwargs):
 def post(callable_attribute: str, *args, **kwargs):
     """ Helper to specify the args and kwargs of a post method in a uniform format
 
-    :param _base_specifier: The name of the parent object's attribute to which args and kwargs are passed
+    :param callable_attribute: The name of the parent object's attribute to which args and kwargs are passed
     :param args: Positional arguments
     :param kwargs: Keyword Arguments
     :return: (callable_attribute, args, kwargs)
@@ -91,8 +91,8 @@ def fire_grid(row=..., column=..., rowspan=..., columnspan=..., sticky=...,
 
     :param row: The row to put widget in; default 0 (topmost row)
     :param column: The column to put widget in; default 0 (leftmost column).
-    :param rowspan: How many rowswidget occupies; default 1.
-    :param columnspan: How many columns widgetoccupies; default 1.
+    :param rowspan: How many rows the widget occupies; default 1.
+    :param columnspan: How many columns the widget occupies; default 1.
     :param sticky: What to do if the cell is larger than widget. By default, with sticky='', widget is centered
       in its cell. sticky may be the string concatenation of zero or more of N, E, S, W, NE, NW, SE, and SW,
       compass directions indicating the sides and corners of the cell to which widget sticks.
@@ -142,7 +142,20 @@ def fire_place(x=..., y=..., relx=..., rely=..., anchor=...,
     return spec('place', **_clean_vargin(locals()), **kwargs)
 
 
+def stub():
+    """ Helper to indicate that a widget will be specified after build() is called
+
+    :return: spec(Stub)
+    """
+    return spec(Stub)
+
+
 # #### Private ####
+class Stub:
+    def __init__(self, layout_type, layout_args, layout_kwargs):
+        self.layout = layout_type, layout_args, layout_kwargs
+
+
 class VarSpec:
     def __init__(self, name, *args, **kwargs):
         self.name = name

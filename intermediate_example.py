@@ -9,6 +9,7 @@ This demonstrates:
   - The addition of Widgets after build but before execution
   - The specification of Memory elements to be unpacked later, to a specified depth (none, *, vs **)
   - Modifying a TkFire GUI instance using traditional tkinter grammar
+  - Using stubs
   - Updating Widget properties during runtime (admittedly, using a quality-of-life method built-in to TkFire)
   - Using the POST specification to perform actions on Widgets after creation but during build
 
@@ -125,11 +126,14 @@ mother = {
                 TYPE: spec(tk.Button),  # Fill in later
                 LAYOUT: fire_grid(row=1, column=0),
             },
-            # To do later, add a button
-            # 'sum_button' :{
-            #     ...
-            # },
-            # Plug in the custom widget
+            # If we want to make something after build, we can either leave a comment
+            # along the lines of "to do later: add a button" or we can specify a 'stub'
+            # in the mother dictionary.  We can store layout information here such that
+            # it is all kept in one place.
+            'sum_button': {
+                TYPE: stub(),
+                LAYOUT: fire_grid()
+            },
             'my_yaml_box': {
                 TYPE: spec(YamlBox),
                 LAYOUT: fire_grid(row=0, column=1, rowspan=4, sticky="NSEW"),
@@ -197,14 +201,24 @@ my_gui.bind_command(
 
 # Second, let us add that 'sum_button'
 # The GUI can be modified using traditional tkinter grammar
-my_gui['left_panel!sum_button'] = tk.Button(
-    my_gui['left_panel'],
-    text="Sum Menus",
-    command=lambda *_: print(
-        sum(memory[f'opt{j}'].get() for j in range(n_options))  # noqa: See note at bottom
-    )
-)
-my_gui['left_panel!sum_button'].grid()
+my_gui.build_stub('left_panel!sum_button',
+                  tk.Button,
+                  text="Sum Menus",
+                  command=lambda *_: print(
+                      sum(memory[f'opt{j}'].get() for j in range(n_options))  # noqa: See note at bottom
+                  )
+                  )
+
+# # If we did not make a 'stub' in the mother, we could also have added this widget
+# #   after build using traditional tkinter grammar
+# my_gui['left_panel!sum_button'] = tk.Button(
+#     my_gui['left_panel'],
+#     text="Sum Menus",
+#     command=lambda *_: print(
+#         sum(memory[f'opt{j}'].get() for j in range(n_options))  # noqa: See note at bottom
+#     )
+# )
+# my_gui['left_panel!sum_button'].grid()
 
 # Run the gui
 tk_core.mainloop()

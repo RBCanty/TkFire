@@ -1,13 +1,11 @@
+""" A helper module to allow a tkinter GUI to be defined from a dictionary (collapsable in IDE) with the ability to
+reference components by Name.
+
+@author: Richard "Ben" Canty
 """
 
-"""
-
-import tkinter
 from tkfire import *
 
-__all__ = [
-    "tkinter",
-    "TkFire", "Dispatcher",
-    "grid_arg", "spec", "VarSpec", "VarArg",
-    "LAYOUT", "TYPE", "CHILDREN", "POST"
-]
+__all__ = ["TkFire", "Memory", "spec", "post", "stub",
+           "fire_pack", "fire_place", "fire_grid",
+           "LAYOUT", "TYPE", "CHILDREN", "POST"]

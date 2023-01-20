@@ -10,7 +10,7 @@ from fire_exceptions import *
 from pprint import pformat
 
 
-__all__ = ["TkFire", "Memory", "spec", "post",
+__all__ = ["TkFire", "Memory", "spec", "post", "stub",
            "fire_pack", "fire_place", "fire_grid",
            "LAYOUT", "TYPE", "CHILDREN", "POST"]
 
@@ -30,17 +30,23 @@ SX = 'scrollx'
 class TkFire:
     """ A Wrapper for tkinter for a nicer experience in an IDE
 
-    Elements of the GUI are of the form {name: {layout: spec, type: spec, children: {}, post: []}}
+    Elements of the GUI are of the form {name: {type: spec, layout: spec, children: {}, post: []}}
 
     - name will define how the element is referenced in the self.gui dictionary
-    - layout keys to a fire_pack, fire_place, or fire_grid call which mimics tkinter's geometry managers
-      in a manner compatible with TkFire.  These methods are wrappers for the spec() method which explicit
-      and annotated arguments.
     - type keys to a specification in the form of a list [Constructor: Type, args: Tuple, kwargs: Dict]
       whose first element is the constructor for a Widget (e.g. LabelFrame, Button) and whose
       second and third elements are the args (packed as a tuple) and the kwargs (packed as a dictionary)
       for the constructor (they are unpacked for the call).  The spec() method is provided to make this
-      more concise and mirror normal python syntax.
+      more concise and mirror normal python syntax.  If {type: stub()}, a stub entry will be made in the
+      self.gui dictionary and the build_stub() method can be called to create the widget later and automatically
+      manage the geometry of the widget as specified in mother.  A Stub cannot accept any POST items---they will
+      be ignored---and will not connect to any scrollbars.
+      but an entry will be made into the self.gui dictionary
+    - layout is an optional element which keys to a fire_pack, fire_place, or fire_grid call which mimics
+      tkinter's geometry managers in a manner compatible with TkFire.  These methods are wrappers for the
+      spec() method which explicit and annotated arguments.  The proper syntax to not manage the geometry
+      of a widget is to omit the layout key, specifying {layout: spec(None)} is unnecessary and specifying
+      {layout: None} will cause an error.
     - children is an optional element which keys to a dictionary with more TkFire Elements.
     - post is an optional element listing operations to be executed after the creation of the Object
       which is a list of lists of the form [[attribute: string, args: Tuple, kwargs: Dict], ...] where
@@ -98,10 +104,6 @@ class TkFire:
         self._variable_map = dict()  # Whenever variable is bound to a widget,
         # this map stores {name_of_widget_in_gui: name_of_variable_in_memory}
 
-    def build(self):
-        self._build("", self._mother)
-        return self
-
     def __getitem__(self, item):
         if isinstance(item, tuple):
             item = "!".join(item)
@@ -111,6 +113,8 @@ class TkFire:
         if isinstance(key, tuple):
             key = "!".join(key)
         self.gui[key] = value
+
+    # Private
 
     def _sanitize_kwargs(self, kwargs, path, root):
         replacer = list()
@@ -160,30 +164,121 @@ class TkFire:
                 new_args.append(value)
         return new_args
 
-    @staticmethod
-    def _get_scrolls(args, kwargs):
-        if SY in kwargs:
-            has_scroll_y = True
-            kwargs.pop(SY)
-        elif SY in args:
-            has_scroll_y = True
-            args.pop(args.index(SY))
-        else:
-            has_scroll_y = False
+    def _validate_specifications(self, root, child_spec, child_path, child_repr):
+        # Load in constructors and scripts
+        try:
+            widget_type, widget_args, widget_kwargs = child_spec[TYPE]
+            layout_type, layout_args, layout_kwargs = child_spec.get(LAYOUT, [None, (), {}])
+            post_methods = child_spec.get(POST, [])
+            grandchildren = child_spec.get(CHILDREN, None)
+        except (LookupError, TypeError, ValueError) as pe:
+            msg = f"Could not parse '{child_path}' from:\n{child_repr}"
+            raise TkFireParseError(msg) from pe
 
-        if SX in kwargs:
-            has_scroll_x = True
-            kwargs.pop(SX)
-        elif SX in args:
-            has_scroll_x = True
-            args.pop(args.index(SX))
-        else:
-            has_scroll_x = False
+        # Remap names in args:
+        try:
+            widget_args = self._sanitize_args(widget_args, widget_kwargs, child_path, root)
+        except Exception as e:
+            msg = f"Could not parse positional arguments for {child_path}'s type from:\n{widget_args}"
+            raise TkFireSpecificationError(msg) from e
+        try:
+            layout_args = self._sanitize_args(layout_args, layout_kwargs, child_path, root)
+        except Exception as e:
+            msg = f"Could not parse positional arguments for {child_path}'s layout from:\n{layout_args}"
+            raise TkFireSpecificationError(msg) from e
+
+        # Remap names in kwargs
+        try:
+            self._sanitize_kwargs(widget_kwargs, child_path, root)
+        except Exception as e:
+            msg = f"Could not parse keyword arguments for {child_path}'s type from:\n{widget_kwargs}"
+            raise TkFireSpecificationError(msg) from e
+        try:
+            self._sanitize_kwargs(layout_kwargs, child_path, root)
+        except Exception as e:
+            msg = f"Could not parse keyword arguments for {child_path}'s layout from:\n{layout_kwargs}"
+            raise TkFireSpecificationError(msg) from e
+
+        return widget_type, widget_args, widget_kwargs, \
+            layout_type, layout_args, layout_kwargs, \
+            post_methods, grandchildren
+
+    @staticmethod
+    def _get_scrolls(args, kwargs, child_path):
+        try:
+            if SY in kwargs:
+                has_scroll_y = True
+                kwargs.pop(SY)
+            elif SY in args:
+                has_scroll_y = True
+                args.pop(args.index(SY))
+            else:
+                has_scroll_y = False
+
+            if SX in kwargs:
+                has_scroll_x = True
+                kwargs.pop(SX)
+            elif SX in args:
+                has_scroll_x = True
+                args.pop(args.index(SX))
+            else:
+                has_scroll_x = False
+        except Exception as e:
+            msg = f"Could not parse scrollbar for '{child_path}'"
+            raise TkFireSpecificationError(msg) from e
 
         return has_scroll_y, has_scroll_x
 
-    def generate(self, generator, *args, **kwargs):
-        return generator(*args, **kwargs)
+    def _bind_scrolls(self, root, child_path, has_scroll_y, has_scroll_x):
+        try:
+            if has_scroll_y:
+                self.gui[child_path + '!Scrolly'] = tk.Scrollbar(root)
+                self.gui[child_path]['yscrollcommand'] = self.gui[child_path + '!Scrolly'].set
+                self.gui[child_path + '!Scrolly'].config(command=self.gui[child_path].yview)
+                self.gui[child_path + '!Scrolly'].pack(side=tk.RIGHT, fill=tk.Y)
+            if has_scroll_x:
+                self.gui[child_path + '!Scrollx'] = tk.Scrollbar(root, orient=tk.HORIZONTAL)
+                self.gui[child_path]['xscrollcommand'] = self.gui[child_path + '!Scrollx'].set
+                self.gui[child_path + '!Scrollx'].config(command=self.gui[child_path].xview)
+                self.gui[child_path + '!Scrollx'].pack(side=tk.BOTTOM, fill=tk.X)
+        except Exception as e:
+            msg = f"Could not bind scrollbars for '{child_path}'"
+            raise TkFireSpecificationError(msg) from e
+
+    def _generate(self, root, child_path, child_repr, generator, *args, **kwargs):
+        try:
+            self.gui[child_path] = generator(root, *args, **kwargs)
+        except Exception as e:
+            msg = f"Could not build '{child_path}' from:\n{child_repr}"
+            raise TkFireRenderError(msg) from e
+
+    def _render(self, child_path, layout_type, layout_args, layout_kwargs, child_repr):
+        if not layout_type:
+            return
+
+        try:
+            geometry_manager = getattr(self.gui[child_path], layout_type)
+            return geometry_manager(*layout_args, **layout_kwargs)
+        except Exception as e:
+            msg = f"Could not render '{child_path}' from:\n{child_repr}"
+            raise TkFireRenderError(msg) from e
+
+    def _execute_post(self, post_method, method_args, method_kwargs, root, child_path):
+        try:
+            method_args = self._sanitize_args(method_args, method_kwargs, child_path, root)
+        except Exception as e:
+            msg = f"Could not parse positional arguments for {child_path}'s post operation:\n{post_method}"
+            raise TkFirePostError(msg) from e
+        try:
+            self._sanitize_kwargs(method_kwargs, child_path, root)
+        except Exception as e:
+            msg = f"Could not parse keyword arguments for {child_path}'s type operation:\n{post_method}"
+            raise TkFirePostError(msg) from e
+        try:
+            getattr(self.gui[child_path], post_method)(*method_args, **method_kwargs)
+        except Exception as e:
+            msg = f"Could not execute post method {post_method} specified in '{child_path}'"
+            raise TkFirePostError(msg) from e
 
     def _build(self, parent, structure):
         """ Constructs the dictionary which contains all the widgets (recursively)
@@ -213,94 +308,38 @@ class TkFire:
             child_path = path + child_name
             child_repr = pformat(child_spec, depth=3)
 
-            # Load in constructors and scripts
-            try:
-                widget_type, widget_args, widget_kwargs = child_spec[TYPE]
-                layout_type, layout_args, layout_kwargs = child_spec[LAYOUT]
-                post_methods = child_spec.get(POST, [])
-                grandchildren = child_spec.get(CHILDREN, None)
-            except LookupError as le:
-                msg = f"Could not parse '{child_path}' from:\n{child_repr}"
-                raise TkFireParseError(msg) from le
+            widget_type, widget_args, widget_kwargs, \
+                layout_type, layout_args, layout_kwargs, \
+                post_methods, \
+                grandchildren = \
+                self._validate_specifications(root, child_spec, child_path, child_repr)
 
-            # Remap names in args:
-            try:
-                widget_args = self._sanitize_args(widget_args, widget_kwargs, child_path, root)
-            except Exception as e:
-                msg = f"Could not parse positional arguments for {child_path}'s type from:\n{widget_args}"
-                raise TkFireSpecificationError(msg) from e
-            try:
-                layout_args = self._sanitize_args(layout_args, layout_kwargs, child_path, root)
-            except Exception as e:
-                msg = f"Could not parse positional arguments for {child_path}'s layout from:\n{layout_args}"
-                raise TkFireSpecificationError(msg) from e
-
-            # Remap names in kwargs
-            try:
-                self._sanitize_kwargs(widget_kwargs, child_path, root)
-            except Exception as e:
-                msg = f"Could not parse keyword arguments for {child_path}'s type from:\n{widget_kwargs}"
-                raise TkFireSpecificationError(msg) from e
-            try:
-                self._sanitize_kwargs(layout_kwargs, child_path, root)
-            except Exception as e:
-                msg = f"Could not parse keyword arguments for {child_path}'s layout from:\n{layout_kwargs}"
-                raise TkFireSpecificationError(msg) from e
+            if widget_type is Stub:
+                self.gui[child_path] = Stub(layout_type, layout_args, layout_kwargs)
+                continue
 
             # Set flags for handling scrollbars
-            try:
-                has_scroll_y, has_scroll_x = self._get_scrolls(widget_args, widget_kwargs)
-            except Exception as e:
-                msg = f"Could not parse scrollbar for '{child_path}'"
-                raise TkFireSpecificationError(msg) from e
+            has_scroll_y, has_scroll_x = self._get_scrolls(widget_args, widget_kwargs, child_path)
 
             # Build the object
-            try:
-                self.gui[child_path] = self.generate(widget_type, root, *widget_args, **widget_kwargs)
-            except Exception as e:
-                msg = f"Could not build '{child_path}' from:\n{child_repr}"
-                raise TkFireRenderError(msg) from e
+            self._generate(root, child_path, child_repr, widget_type, *widget_args, **widget_kwargs)
+
             # Define its layout
-            try:
-                getattr(self.gui[child_path], layout_type)(*layout_args, **layout_kwargs)
-            except Exception as e:
-                msg = f"Could not render '{child_path}' from:\n{child_repr}"
-                raise TkFireRenderError(msg) from e
+            self._render(child_path, layout_type, layout_args, layout_kwargs, child_repr)
 
             # Execute post operations:
             for post_method, method_args, method_kwargs in post_methods:
-                try:
-                    method_args = self._sanitize_args(method_args, method_kwargs, child_path, root)
-                except Exception as e:
-                    msg = f"Could not parse positional arguments for {child_path}'s post operation:\n{post_method}"
-                    raise TkFirePostError(msg) from e
-                try:
-                    self._sanitize_kwargs(method_kwargs, child_path, root)
-                except Exception as e:
-                    msg = f"Could not parse keyword arguments for {child_path}'s type operation:\n{post_method}"
-                    raise TkFirePostError(msg) from e
-                try:
-                    getattr(self.gui[child_path], post_method)(*method_args, **method_kwargs)
-                except Exception as e:
-                    msg = f"Could not execute post method {post_method} specified in '{child_path}'"
-                    raise TkFirePostError(msg) from e
+                self._execute_post(post_method, method_args, method_kwargs, root, child_path)
 
-            try:
-                if has_scroll_y:
-                    self.gui[child_path + '!Scrolly'] = tk.Scrollbar(root)
-                    self.gui[child_path]['yscrollcommand'] = self.gui[child_path + '!Scrolly'].set
-                    self.gui[child_path + '!Scrolly'].config(command=self.gui[child_path].yview)
-                    self.gui[child_path + '!Scrolly'].pack(side=tk.RIGHT, fill=tk.Y)
-                if has_scroll_x:
-                    self.gui[child_path + '!Scrollx'] = tk.Scrollbar(root, orient=tk.HORIZONTAL)
-                    self.gui[child_path]['xscrollcommand'] = self.gui[child_path + '!Scrollx'].set
-                    self.gui[child_path + '!Scrollx'].config(command=self.gui[child_path].xview)
-                    self.gui[child_path + '!Scrollx'].pack(side=tk.BOTTOM, fill=tk.X)
-            except Exception as e:
-                msg = f"Could not bind scrollbars for '{child_path}'"
-                raise TkFireSpecificationError(msg) from e
+            self._bind_scrolls(root, child_path, has_scroll_y, has_scroll_x)
 
             self._build(child_path, grandchildren)
+
+    # Main
+
+    def build(self):
+        self._build("", self._mother)
+        return self
 
     def bind_commands(self, *args):
         """ Binds commands after build() is called. Calls self.bind_command() on each tuple passed
@@ -315,6 +354,7 @@ class TkFire:
         """ Binds a command to a Button (or other Widget with a 'command' component) after build() is called
 
         :param path: The gui path to the Widget (e.g. "main!left!button_5")
+        :param command: The callable being bound to the command component
         """
         self.gui[path]['command'] = command
 
@@ -347,6 +387,32 @@ class TkFire:
         for opt, opt_name in zip(options, option_names):  # strict=True
             option_menu.add_command(label=opt_name,
                                     command=lambda value=opt: variable.set(value))
+
+    def build_stub(self, path, generator, *args, **kwargs):
+        """ Converts a stub into real object.
+
+        The parent widget (master) is calculated here, and so should not be included in the args parameter.
+
+        :param path: The gui path to the Widget (e.g. "main!left!button_5")
+        :param generator: The constructor for the Widget
+        :param args: Positional arguments to be passed to the generator
+        :param kwargs: Keyword arguments to be passed to the generator
+        :return: The new widget
+        """
+        widget: Stub = self.gui[path]
+        layout_type, layout_args, layout_kwargs = widget.layout
+
+        parent_path, _ = path.rsplit("!", 1)
+        parent = self.gui[parent_path]
+
+        self._generate(parent, path, f"{generator} called with args={args}, kwargs={kwargs}",
+                       generator, *args, **kwargs)
+
+        getattr(self.gui[path], layout_type)(*layout_args, **layout_kwargs)
+
+        return self.gui[path]
+
+    # tikinter
 
     def destroy(self):
         """ Calls destroy() on the tkinter core
