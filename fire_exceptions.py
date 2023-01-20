@@ -8,38 +8,24 @@ import traceback
 
 
 class TkFireException(Exception):
-    def __init__(self, base, *, message="", context=None):
-        self.__cause__ = base
-        self.args = (message, *self.args, context)
-
-
-class TkFireStructuralError(Exception):
     pass
 
 
-class TkFireSpecificationError(Exception):
+class TkFireStructuralError(TkFireException):
     pass
 
 
-class TkFireParseError(Exception):
+class TkFireSpecificationError(TkFireException):
     pass
 
 
-class TkFireRenderError(Exception):
+class TkFireParseError(TkFireException):
     pass
 
 
-class TkFirePostError(Exception):
+class TkFireRenderError(TkFireException):
     pass
 
 
-if __name__ == '__main__':
-    from pprint import pprint
-
-    try:
-        a = 4/0
-    except Exception as e:
-        try:
-            raise TkFireException(e, message="This is an exception", context="It occurred here")
-        except TkFireException as tkfe:
-            raise TkFireException(tkfe, message="Level 2")
+class TkFirePostError(TkFireException):
+    pass

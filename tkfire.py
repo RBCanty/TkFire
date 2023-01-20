@@ -4,9 +4,15 @@ reference components by Name.
 @author: Richard "Ben" Canty
 """
 
+import tkinter as tk
 from dispatching import *
 from fire_exceptions import *
 from pprint import pformat
+
+
+__all__ = ["TkFire", "Memory", "spec", "post",
+           "fire_pack", "fire_place", "fire_grid",
+           "LAYOUT", "TYPE", "CHILDREN", "POST"]
 
 
 # #### Constants #### #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
@@ -19,126 +25,74 @@ SY = 'scrolly'
 SX = 'scrollx'
 
 
-# #### Helper Methods #### #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
-def has_key(_d, _key):
-    present = False
-
-    if isinstance(_key, VarArg):
-        _key = _key.name
-
-    try:
-        present = _key in _d
-    except TypeError:
-        pass
-    finally:
-        return present
-
-
-def grid_arg(row, col, kwargs=None):
-    """ Used to abridge the specification of the tkinter grid packer
-
-    Reference:
-      - columnspan: How many columns a widget occupies (default 1)
-      - rowspan: How many rows a widget occupies (default 1)
-      - ipadx, ipady: How many pixels to pad inside the widget's borders, horizontally and vertically
-      - padx, pady: How many pixels to pad outside the widget's borders, horizontally and vertically
-      - sticky: What to do if the cell is larger than widget
-        (center - "", side/corner - combinations of "N", "S", "E", & "W")
-
-    :param row: the row number (0-indexed)
-    :param col: the column number (0-indexed)
-    :param kwargs: And additional kwargs for grid (see note)
-    :return: A dict of keyword arguments for grid()
-    """
-    if kwargs is None:
-        kwargs = {}
-    args = {'row': row, 'column': col}
-    args.update(kwargs)
-    return args
-
-
 # #### TkFire #### #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #  #
 
 class TkFire:
     """ A Wrapper for tkinter for a nicer experience in an IDE
 
-    Elements of the GUI are of the form {name: {layout: [], type: [], children: {}}}
+    Elements of the GUI are of the form {name: {layout: spec, type: spec, children: {}, post: []}}
 
-    - name will define how the element is references in the self.gui dictionary
-    - layout keys to a list whose first element is the layout method (e.g. pack, grid) and whose
-      second element is a dictionary of the kwargs which are passed to the layout method.
-    - type keys to a list whose first element is the name of the Widget (e.g. LabelFrame, Button)
-      and whose second element is a dictionary of the kwargs given to the widget's constructor
+    - name will define how the element is referenced in the self.gui dictionary
+    - layout keys to a fire_pack, fire_place, or fire_grid call which mimics tkinter's geometry managers
+      in a manner compatible with TkFire.  These methods are wrappers for the spec() method which explicit
+      and annotated arguments.
+    - type keys to a specification in the form of a list [Constructor: Type, args: Tuple, kwargs: Dict]
+      whose first element is the constructor for a Widget (e.g. LabelFrame, Button) and whose
+      second and third elements are the args (packed as a tuple) and the kwargs (packed as a dictionary)
+      for the constructor (they are unpacked for the call).  The spec() method is provided to make this
+      more concise and mirror normal python syntax.
     - children is an optional element which keys to a dictionary with more TkFire Elements.
+    - post is an optional element listing operations to be executed after the creation of the Object
+      which is a list of lists of the form [[attribute: string, args: Tuple, kwargs: Dict], ...] where
+      attribute is an attribute of the parent (the object created just before) which is called with args
+      and kwargs (they are unpacked for the call).  The spec() method is provided to make this
+      more concise and mirror normal python syntax.
 
     This nestable definition of elements is passed into the constructor as the 'mother'.  Elements
-    of the 'mother' can reference the elements of a companion dictionary 'memory' which can store
+    of the 'mother' can reference the elements of a companion Memory object 'memory' which can store
     tkinter variables and functions to bind to things like buttons.
 
-    Technically, any element keyed by a string which maps to a list will be interpreted as
-    [constructor, {arguments}], and so tkinter variables can be specified in the constructor
-    of other Elements (see Opt1 in the example below).
+    Elements outside TkFire can be accessed via the self.gui dictionary where the path is a
+    bang-separated sequence of names (e.g. "level_1!subsection_A!ok_button")
 
-    Elements outside TkFire can be accessed via the self.gui dictionary where the path is bang-separated.
+    Outline::
 
-    Example::
-
-    | # Defining the memory
-    | memory = {
-    |     'cmd_continue': lambda: print("Continuing..."),
-    |     'var_opt_1': tk.IntVar,
-    | }
+    | # Define the memory
+    | memory = Memory(...)
     |
-    | # Defining the mother
-    | mother = {
-    |     'main_panel': {
-    |         layout: ['pack', {'side': 'left', 'fill': 'both', 'ipadx': 3, 'ipady': 3}],
-    |         type: ['LabelFrame', {'text': "Left Side", 'width': 16}],
-    |         children: {
-    |             'Button_01': {
-    |                 type: ['Button', {'text': "Play Again", 'command': 'cmd_continue'}],
-    |                 layout: ['grid', {'row': 0, 'column': 0}],
-    |             },
-    |             'Button_02': {
-    |                 type: ['Button', {'text': "Quit"}],
-    |                 layout: ['grid', {'row': 0, 'column': 0}],
-    |             },
-    |             'Opt1': {
-    |                 TYPE: ['OptionMenu', {'variable': ['var_opt_1', {'value': 0}], 'values': 'options'}],
-    |                 LAYOUT: ['pack', TB33],
-    |             },
-    |         },
-    |     ...
-    |     }
+    | # Define the mother
+    | mother = {...}
     |
+    | # Create a tkinter environment and construct the TkFire object
     | my_core = tk.Tk()
+    | my_ui = TkFire(my_core, mother, memory).build()
     |
-    | # Construct the TkFire object
-    | my_ui = TkFire(my_core, mother, memory)
-    |
-    | # Bind a command to a button after construction
-    | my_ui.gui['main_panel!Button_02']['command'] = lambda *_: print("Exiting...")
-    | ...
+    | # Run
     | my_core.mainloop()
     """
 
-    def __init__(self, core, memory: dict, mother: dict, generator: Dispatcher = None):
+    def __init__(self, core, memory=None, mother: dict = None):
         """ Creates a TkFire object which allows a tkinter GUI to be created and modified using dictionary syntax.
 
-        References: :class:`Dispatcher`
+        References: :class:`Memory`
 
         :param core: a tkinter root (Tk, TopLevel, Frame, ...)
-        :param memory: a dictionary of variables (keys may be referenced in mother)
+        :param memory: a dictionary or Memory of variables (keys may be referenced by mother)
         :param mother: a dictionary specifying the GUI
-        :param generator: Determines how the objects references in mother will be constructed
         """
         self.core = core
-        self.memory = memory
-        self._mother = mother
 
-        if generator is None:
-            generator = Dispatcher()
-        self.generator = generator
+        if memory is None:
+            memory = {}
+        if isinstance(memory, Memory):
+            self.memory = memory
+        else:
+            self.memory = Memory(memory)
+
+        if mother is None:
+            mother = {}
+
+        self._mother = mother
 
         self.gui = dict()  # maps to all widgets
         self._variable_map = dict()  # Whenever variable is bound to a widget,
@@ -168,7 +122,7 @@ class TkFire:
                 self.memory[var_name] = value.construct(root, self.memory[var_name])
                 replacer.append((keyword, self.memory[var_name]))
             # value is a reference  # [ e.g. values='options' ]
-            elif has_key(self.memory, value):
+            elif value in self.memory:
                 replacer.append((keyword, self.memory[value]))
             # value is a literal  # [ e.g. values=[1, 2, 3, 4] ]
             else:
@@ -188,7 +142,7 @@ class TkFire:
                 new_args.append(self.memory[var_name])
             # value is a reference
             # e.g. foo(..., 'options', ...)
-            elif has_key(self.memory, value):
+            elif value in self.memory:
                 if isinstance(value, VarArg):
                     if value.unpack == 2:
                         for k, v in self.memory[value.name]:
@@ -227,6 +181,9 @@ class TkFire:
             has_scroll_x = False
 
         return has_scroll_y, has_scroll_x
+
+    def generate(self, generator, *args, **kwargs):
+        return generator(*args, **kwargs)
 
     def _build(self, parent, structure):
         """ Constructs the dictionary which contains all the widgets (recursively)
@@ -299,7 +256,7 @@ class TkFire:
 
             # Build the object
             try:
-                self.gui[child_path] = self.generator.generate(widget_type, root, *widget_args, **widget_kwargs)
+                self.gui[child_path] = self.generate(widget_type, root, *widget_args, **widget_kwargs)
             except Exception as e:
                 msg = f"Could not build '{child_path}' from:\n{child_repr}"
                 raise TkFireRenderError(msg) from e
@@ -346,13 +303,20 @@ class TkFire:
             self._build(child_path, grandchildren)
 
     def bind_commands(self, *args):
-        """ Binds commands after
+        """ Binds commands after build() is called. Calls self.bind_command() on each tuple passed
 
-        :param args: an iterable of (path, command)
+        :param args: An iterable with elements of the form (path, command)
         :return: None
         """
-        for (path, _command) in args:
-            self.gui[path]['command'] = _command
+        for (path, command) in args:
+            self.bind_command(path, command)
+
+    def bind_command(self, path, command):
+        """ Binds a command to a Button (or other Widget with a 'command' component) after build() is called
+
+        :param path: The gui path to the Widget (e.g. "main!left!button_5")
+        """
+        self.gui[path]['command'] = command
 
     def set_optionmenu_options(self, path, options=None, *, variable=None, option_names=None):
         """ Updates the options presented in an OptionMenu
