@@ -176,5 +176,5 @@ class VarArg:
 
 
 def _clean_vargin(vargs):
-    vargs.pop("kwargs", None)
+    vargs.pop("kwargs", {})
     return {k: v for k, v in vargs.items() if not isinstance(v, NOT_FILLED)}
